@@ -40,8 +40,8 @@ def load_all():
         ["year", "elderly_population", "risk_score"],
     )
     metrics     = safe_read(
-        "SELECT model_name, mae, r2, trained_at FROM fact_model_metrics",
-        ["model_name", "mae", "r2", "trained_at"],
+        "SELECT model_name, mae, rmse, mape, r2, trained_at FROM fact_model_metrics",
+        ["model_name", "mae", "rmse", "mape", "r2", "trained_at"],
     )
 
     conn.close()
