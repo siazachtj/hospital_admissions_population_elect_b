@@ -17,7 +17,7 @@ st.title("Healthcare Analytics Dashboard")
 st.caption("Run `python run_pipeline.py` to refresh all data and forecasts.")
 
 
-@st.cache_data
+@st.cache_data(ttl=0)
 def load_all():
     conn = sqlite3.connect(DB_PATH)
 

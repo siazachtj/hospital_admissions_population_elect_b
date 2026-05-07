@@ -48,17 +48,27 @@ print("\n=== XGBoost Evaluation ===")
 print(f"MAE: {mae:,.0f} admissions")
 print(f"R²:  {r2:.4f}")
 
-# Per-group linear regression forecasts
-combos    = df[["level_1", "level_2"]].drop_duplicates()
-lr_models = {}
+# Per-group linear regression — two sets of models:
+#   lr_models     : trained on ALL data, used for forecasting future years
+#   lr_eval_models: trained on train_df only, used for honest test-set evaluation
+combos = df[["level_1", "level_2"]].drop_duplicates()
+lr_models      = {}
+lr_eval_models = {}
 
 for _, row in combos.iterrows():
-    key = (row["level_1"], row["level_2"])
-    grp = df[(df["level_1"] == key[0]) & (df["level_2"] == key[1])]
-    if len(grp) >= 2:
-        lr_models[key] = LinearRegression().fit(grp[["year"]].values, grp["admissions"].values)
-    else:
-        lr_models[key] = None
+    key        = (row["level_1"], row["level_2"])
+    grp_all    = df[       (df["level_1"]       == key[0]) & (df["level_2"]       == key[1])]
+    grp_train  = train_df[ (train_df["level_1"] == key[0]) & (train_df["level_2"] == key[1])]
+
+    lr_models[key] = (
+        LinearRegression().fit(grp_all[["year"]].values, grp_all["admissions"].values)
+        if len(grp_all) >= 2 else None
+    )
+    lr_eval_models[key] = (
+        LinearRegression().fit(grp_train[["year"]].values, grp_train["admissions"].values)
+        if len(grp_train) >= 2 else None
+    )
+    if lr_models[key] is None:
         print(f"  Only 1 data point for {key} — using flat projection")
 
 last_year    = int(df["year"].max())
@@ -89,11 +99,11 @@ print(forecast_df.to_string(index=False))
 forecast_df.to_sql("fact_forecasts", conn, if_exists="replace", index=False)
 print(f"\n{len(forecast_df)} rows saved → fact_forecasts")
 
-# Evaluate linear regression on the test set (same 80/20 split as XGBoost)
+# Evaluate on the held-out test set using models trained on train_df only
 lr_preds = []
 for _, row in test_df.iterrows():
     key = (row["level_1"], row["level_2"])
-    lr  = lr_models.get(key)
+    lr  = lr_eval_models.get(key)
     pred = lr.predict([[row["year"]]])[0] if lr is not None else row["admissions"]
     lr_preds.append(max(0, pred))
 
