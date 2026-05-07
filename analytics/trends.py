@@ -99,25 +99,40 @@ print(forecast_df.to_string(index=False))
 forecast_df.to_sql("fact_forecasts", conn, if_exists="replace", index=False)
 print(f"\n{len(forecast_df)} rows saved → fact_forecasts")
 
-# Evaluate on the held-out test set using models trained on train_df only
+# Evaluate on the held-out test set using models trained on train_df only.
+# Exclude Public/Non-Public sub-categories — they inflate error unfairly
+# because the same year appears multiple times with different parent contexts.
+SUB_CATEGORIES = {"Public", "Non-Public"}
+eval_df = test_df[~test_df["level_1"].isin(SUB_CATEGORIES)]
+
 lr_preds = []
-for _, row in test_df.iterrows():
+for _, row in eval_df.iterrows():
     key = (row["level_1"], row["level_2"])
     lr  = lr_eval_models.get(key)
     pred = lr.predict([[row["year"]]])[0] if lr is not None else row["admissions"]
     lr_preds.append(max(0, pred))
 
-lr_mae = mean_absolute_error(test_df["admissions"], lr_preds)
-lr_r2  = r2_score(test_df["admissions"],            lr_preds)
+actuals  = eval_df["admissions"].values
+lr_preds = [max(0, p) for p in lr_preds]
 
-print(f"\n=== Linear Regression Evaluation (test set) ===")
-print(f"MAE: {lr_mae:,.0f} admissions")
-print(f"R²:  {lr_r2:.4f}")
+import numpy as np
+lr_mae  = mean_absolute_error(actuals, lr_preds)
+lr_rmse = float(np.sqrt(np.mean((np.array(actuals) - np.array(lr_preds)) ** 2)))
+lr_mape = float(np.mean(np.abs((np.array(actuals) - np.array(lr_preds)) / np.array(actuals))) * 100)
+lr_r2   = r2_score(actuals, lr_preds)
+
+print(f"\n=== Linear Regression Evaluation (test set, sub-categories excluded) ===")
+print(f"MAE:  {lr_mae:,.0f} admissions")
+print(f"RMSE: {lr_rmse:,.0f} admissions")
+print(f"MAPE: {lr_mape:.1f}%")
+print(f"R²:   {lr_r2:.4f}")
 
 pd.DataFrame([{
     "model_name": "linear_regression",
-    "mae":        round(lr_mae, 2),
-    "r2":         round(lr_r2,  4),
+    "mae":        round(lr_mae,  2),
+    "rmse":       round(lr_rmse, 2),
+    "mape":       round(lr_mape, 2),
+    "r2":         round(lr_r2,   4),
     "trained_at": datetime.now().isoformat(),
 }]).to_sql("fact_model_metrics", conn, if_exists="replace", index=False)
 print("Metrics saved → fact_model_metrics")

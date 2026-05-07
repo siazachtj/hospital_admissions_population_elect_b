@@ -85,10 +85,31 @@ if lr_rows.empty:
     st.info("No model metrics yet — run the pipeline.")
 else:
     row = lr_rows.iloc[0]
-    c1, c2, c3 = st.columns(3)
+
+    mape = row.get("mape", None)
+    if mape is not None:
+        if mape < 5:
+            accuracy_label, colour = "Excellent", "normal"
+        elif mape < 10:
+            accuracy_label, colour = "Good", "normal"
+        elif mape < 20:
+            accuracy_label, colour = "Moderate", "off"
+        else:
+            accuracy_label, colour = "Poor", "inverse"
+    else:
+        accuracy_label, colour = "N/A", "off"
+
+    st.caption(
+        "Evaluated on held-out test years (80/20 temporal split). "
+        "Public/Non-Public sub-categories excluded from evaluation. "
+        "MAPE = mean absolute % error — the most interpretable accuracy measure."
+    )
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Model", "Linear Regression")
-    c2.metric("MAE", f"{row['mae']:,.0f} admissions")
-    c3.metric("R²", f"{row['r2']:.4f}")
+    c2.metric("MAE", f"{row['mae']:,.0f}")
+    c3.metric("RMSE", f"{row.get('rmse', float('nan')):,.0f}" if "rmse" in row and row["rmse"] == row["rmse"] else "N/A")
+    c4.metric("MAPE", f"{mape:.1f}%" if mape is not None else "N/A")
+    c5.metric("Accuracy", accuracy_label)
 
 # ── Forecasts ─────────────────────────────────────────────────────────────────
 st.header("Admissions Forecasts")
