@@ -1,0 +1,9 @@
+pandas
+numpy
+requests
+sqlalchemy
+scikit-learn
+streamlit
+plotly
+statsmodels
+xgboost

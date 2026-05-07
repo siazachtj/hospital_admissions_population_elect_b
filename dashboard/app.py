@@ -1,0 +1,132 @@
+import sqlite3
+from pathlib import Path
+
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+DB_PATH = Path(__file__).parent.parent / "database" / "healthcare_analytics.db"
+
+# "Public" and "Non-Public" are sub-breakdowns of Acute, Psychiatric, and
+# Community hospitals — including them in any aggregate sum double-counts those sectors.
+SUB_CATEGORIES = {"Public", "Non-Public"}
+
+st.set_page_config(page_title="Healthcare Analytics", layout="wide")
+st.title("Healthcare Analytics Dashboard")
+
+st.caption("Run `python run_pipeline.py` to refresh all data and forecasts.")
+
+
+@st.cache_data
+def load_all():
+    conn = sqlite3.connect(DB_PATH)
+
+    def safe_read(query, fallback_cols):
+        try:
+            return pd.read_sql(query, conn)
+        except Exception:
+            return pd.DataFrame(columns=fallback_cols)
+
+    admissions  = safe_read(
+        "SELECT year, level_1, level_2, admissions FROM fact_hospital_admissions",
+        ["year", "level_1", "level_2", "admissions"],
+    )
+    forecasts   = safe_read(
+        "SELECT year, level_1, level_2, predicted_admissions, model_type FROM fact_forecasts",
+        ["year", "level_1", "level_2", "predicted_admissions", "model_type"],
+    )
+    risk_scores = safe_read(
+        "SELECT year, elderly_population, risk_score FROM fact_risk_scores",
+        ["year", "elderly_population", "risk_score"],
+    )
+    metrics     = safe_read(
+        "SELECT model_name, mae, r2, trained_at FROM fact_model_metrics",
+        ["model_name", "mae", "r2", "trained_at"],
+    )
+
+    conn.close()
+    return admissions, forecasts, risk_scores, metrics
+
+
+admissions_df, forecasts_df, risk_df, metrics_df = load_all()
+
+# ── Guard: pipeline not yet run ───────────────────────────────────────────────
+if admissions_df.empty:
+    st.warning("No data found. Run `python run_pipeline.py` first.")
+    st.stop()
+
+# Top-level sectors only (exclude sub-category breakdowns to avoid double-counting)
+top_level_df = admissions_df[~admissions_df["level_1"].isin(SUB_CATEGORIES)]
+
+# ── Hospital Admissions ───────────────────────────────────────────────────────
+st.header("Hospital Admissions")
+
+top_sectors = sorted(top_level_df["level_1"].unique())
+sel_l1 = st.multiselect("Sector", top_sectors, default=top_sectors)
+
+filtered = top_level_df[top_level_df["level_1"].isin(sel_l1)]
+
+st.plotly_chart(px.line(
+    filtered.groupby("year", as_index=False)["admissions"].sum(),
+    x="year", y="admissions", title="Total Hospital Admissions by Year", markers=True,
+), use_container_width=True)
+
+st.plotly_chart(px.bar(
+    filtered.groupby(["year", "level_1"], as_index=False)["admissions"].sum(),
+    x="year", y="admissions", color="level_1",
+    title="Admissions by Sector", barmode="group",
+), use_container_width=True)
+
+# ── Model Metrics ─────────────────────────────────────────────────────────────
+st.header("Model Performance")
+
+if metrics_df.empty:
+    st.info("No model metrics yet — run the pipeline to train models.")
+else:
+    for _, row in metrics_df.iterrows():
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Model",      row["model_name"])
+        c2.metric("MAE",        f"{row['mae']:,.0f} admissions")
+        c3.metric("R²",         f"{row['r2']:.4f}")
+
+# ── Forecasts ─────────────────────────────────────────────────────────────────
+st.header("Admissions Forecasts")
+
+# Exclude sub-categories from forecasts too
+forecasts_top = forecasts_df[~forecasts_df["level_1"].isin(SUB_CATEGORIES)]
+
+if forecasts_top.empty:
+    st.info("No forecasts yet — run the pipeline.")
+else:
+    model_types = sorted(forecasts_top["model_type"].unique())
+    selected_model = st.selectbox("Model", model_types)
+    fc = forecasts_top[forecasts_top["model_type"] == selected_model]
+
+    st.plotly_chart(px.line(
+        fc.groupby("year", as_index=False)["predicted_admissions"].sum(),
+        x="year", y="predicted_admissions",
+        title=f"Forecasted Total Admissions ({selected_model})", markers=True,
+    ), use_container_width=True)
+
+    st.plotly_chart(px.bar(
+        fc.groupby(["year", "level_1"], as_index=False)["predicted_admissions"].sum(),
+        x="year", y="predicted_admissions", color="level_1",
+        title=f"Forecasted Admissions by Sector ({selected_model})", barmode="group",
+    ), use_container_width=True)
+
+    with st.expander("Full forecast table"):
+        st.dataframe(fc, use_container_width=True)
+
+# ── Elderly Population Risk Index ─────────────────────────────────────────────
+st.header("Elderly Population Risk Index")
+
+if risk_df.empty:
+    st.info("No risk scores yet — run the pipeline.")
+else:
+    st.plotly_chart(px.line(
+        risk_df.sort_values("year"),
+        x="year", y="risk_score",
+        title="Elderly Population Risk Score Over Time (0–100)", markers=True,
+    ), use_container_width=True)
+
+    st.dataframe(risk_df.sort_values("year"), use_container_width=True)
