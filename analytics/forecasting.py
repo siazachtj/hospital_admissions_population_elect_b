@@ -68,12 +68,4 @@ for _, row in combos.iterrows():
 
     group_anchors[key] = (anchor, cagr)
 
-pd.DataFrame([{
-    "model_name": "xgboost_admissions",
-    "mae":        round(mae, 2),
-    "r2":         round(r2,  4),
-    "trained_at": datetime.now().isoformat(),
-}]).to_sql("fact_model_metrics", conn, if_exists="append", index=False)
-print("Metrics appended → fact_model_metrics")
-
 conn.close()

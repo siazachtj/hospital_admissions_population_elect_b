@@ -77,18 +77,6 @@ st.plotly_chart(px.bar(
     title="Admissions by Sector", barmode="group",
 ), use_container_width=True)
 
-# ── Model Metrics ─────────────────────────────────────────────────────────────
-st.header("Model Performance")
-
-if metrics_df.empty:
-    st.info("No model metrics yet — run the pipeline to train models.")
-else:
-    for _, row in metrics_df.iterrows():
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Model",      row["model_name"])
-        c2.metric("MAE",        f"{row['mae']:,.0f} admissions")
-        c3.metric("R²",         f"{row['r2']:.4f}")
-
 # ── Forecasts ─────────────────────────────────────────────────────────────────
 st.header("Admissions Forecasts")
 

@@ -89,13 +89,6 @@ print(forecast_df.to_string(index=False))
 forecast_df.to_sql("fact_forecasts", conn, if_exists="replace", index=False)
 print(f"\n{len(forecast_df)} rows saved → fact_forecasts")
 
-pd.DataFrame([{
-    "model_name": "xgboost_admissions",
-    "mae":        round(mae, 2),
-    "r2":         round(r2,  4),
-    "trained_at": datetime.now().isoformat(),
-}]).to_sql("fact_model_metrics", conn, if_exists="replace", index=False)
-print("Metrics saved → fact_model_metrics")
 
 joblib.dump({
     "xgb_model":  xgb_model,
