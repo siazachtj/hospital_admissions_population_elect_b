@@ -89,6 +89,28 @@ print(forecast_df.to_string(index=False))
 forecast_df.to_sql("fact_forecasts", conn, if_exists="replace", index=False)
 print(f"\n{len(forecast_df)} rows saved → fact_forecasts")
 
+# Evaluate linear regression on the test set (same 80/20 split as XGBoost)
+lr_preds = []
+for _, row in test_df.iterrows():
+    key = (row["level_1"], row["level_2"])
+    lr  = lr_models.get(key)
+    pred = lr.predict([[row["year"]]])[0] if lr is not None else row["admissions"]
+    lr_preds.append(max(0, pred))
+
+lr_mae = mean_absolute_error(test_df["admissions"], lr_preds)
+lr_r2  = r2_score(test_df["admissions"],            lr_preds)
+
+print(f"\n=== Linear Regression Evaluation (test set) ===")
+print(f"MAE: {lr_mae:,.0f} admissions")
+print(f"R²:  {lr_r2:.4f}")
+
+pd.DataFrame([{
+    "model_name": "linear_regression",
+    "mae":        round(lr_mae, 2),
+    "r2":         round(lr_r2,  4),
+    "trained_at": datetime.now().isoformat(),
+}]).to_sql("fact_model_metrics", conn, if_exists="replace", index=False)
+print("Metrics saved → fact_model_metrics")
 
 joblib.dump({
     "xgb_model":  xgb_model,

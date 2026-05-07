@@ -77,6 +77,18 @@ st.plotly_chart(px.bar(
     title="Admissions by Sector", barmode="group",
 ), use_container_width=True)
 
+# ── Model Accuracy ────────────────────────────────────────────────────────────
+st.header("Forecast Model Accuracy")
+
+if metrics_df.empty:
+    st.info("No model metrics yet — run the pipeline.")
+else:
+    row = metrics_df[metrics_df["model_name"] == "linear_regression"].iloc[0]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Model", "Linear Regression")
+    c2.metric("MAE", f"{row['mae']:,.0f} admissions")
+    c3.metric("R²", f"{row['r2']:.4f}")
+
 # ── Forecasts ─────────────────────────────────────────────────────────────────
 st.header("Admissions Forecasts")
 
