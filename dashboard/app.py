@@ -98,20 +98,18 @@ forecasts_top = forecasts_df[~forecasts_df["level_1"].isin(SUB_CATEGORIES)]
 if forecasts_top.empty:
     st.info("No forecasts yet — run the pipeline.")
 else:
-    model_types = sorted(forecasts_top["model_type"].unique())
-    selected_model = st.selectbox("Model", model_types)
-    fc = forecasts_top[forecasts_top["model_type"] == selected_model]
+    fc = forecasts_top[forecasts_top["model_type"] == "linear_regression"]
 
     st.plotly_chart(px.line(
         fc.groupby("year", as_index=False)["predicted_admissions"].sum(),
         x="year", y="predicted_admissions",
-        title=f"Forecasted Total Admissions ({selected_model})", markers=True,
+        title="Forecasted Total Admissions (Linear Regression)", markers=True,
     ), use_container_width=True)
 
     st.plotly_chart(px.bar(
         fc.groupby(["year", "level_1"], as_index=False)["predicted_admissions"].sum(),
         x="year", y="predicted_admissions", color="level_1",
-        title=f"Forecasted Admissions by Sector ({selected_model})", barmode="group",
+        title="Forecasted Admissions by Sector (Linear Regression)", barmode="group",
     ), use_container_width=True)
 
     with st.expander("Full forecast table"):

@@ -68,31 +68,8 @@ for _, row in combos.iterrows():
 
     group_anchors[key] = (anchor, cagr)
 
-forecast_rows = []
-for yr in future_years:
-    for _, row in combos.iterrows():
-        key = (row["level_1"], row["level_2"])
-        anchor, cagr = group_anchors[key]
-        pred = anchor * (1 + cagr) ** (yr - last_year)
-        forecast_rows.append({
-            "year":                 yr,
-            "level_1":              row["level_1"],
-            "level_2":              row["level_2"],
-            "predicted_admissions": int(max(0, round(pred))),
-            "model_type":           "xgboost",
-        })
-
-forecast_df = pd.DataFrame(forecast_rows).sort_values(["year", "level_1", "level_2"])
-
-print(f"\n=== XGBoost Forecasts ({future_years[0]}–{future_years[-1]}) ===")
-print(forecast_df.to_string(index=False))
-
-# Append XGBoost forecasts alongside the linear regression ones from trends.py
-forecast_df.to_sql("fact_forecasts", conn, if_exists="append", index=False)
-print(f"\n{len(forecast_df)} rows appended → fact_forecasts")
-
 pd.DataFrame([{
-    "model_name": "xgboost_forecasting",
+    "model_name": "xgboost_admissions",
     "mae":        round(mae, 2),
     "r2":         round(r2,  4),
     "trained_at": datetime.now().isoformat(),
