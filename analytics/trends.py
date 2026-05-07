@@ -96,7 +96,8 @@ forecast_df = pd.DataFrame(forecast_rows).sort_values(["year", "level_1", "level
 print(f"\n=== Forecasts ({future_years[0]}–{future_years[-1]}) ===")
 print(forecast_df.to_string(index=False))
 
-forecast_df.to_sql("fact_forecasts", conn, if_exists="replace", index=False)
+conn.execute("DELETE FROM fact_forecasts")
+forecast_df.to_sql("fact_forecasts", conn, if_exists="append", index=False)
 print(f"\n{len(forecast_df)} rows saved → fact_forecasts")
 
 # Evaluate on the held-out test set using models trained on train_df only.
@@ -134,7 +135,7 @@ pd.DataFrame([{
     "mape":       round(lr_mape, 2),
     "r2":         round(lr_r2,   4),
     "trained_at": datetime.now().isoformat(),
-}]).to_sql("fact_model_metrics", conn, if_exists="replace", index=False)
+}]).to_sql("fact_model_metrics", conn, if_exists="append", index=False)
 print("Metrics saved → fact_model_metrics")
 
 joblib.dump({

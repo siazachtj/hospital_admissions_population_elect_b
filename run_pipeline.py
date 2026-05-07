@@ -8,9 +8,11 @@ import requests
 import pandas as pd
 from pathlib import Path
 
-# Import transforms from etl/
+# Import transforms from etl/ and db initialiser
 sys.path.insert(0, str(Path(__file__).parent / "etl"))
+sys.path.insert(0, str(Path(__file__).parent / "database"))
 from transform import clean_admissions_data, clean_population_data
+from init_db import init_db
 
 BASE_URL = "https://data.gov.sg/api/action/datastore_search"
 DB_PATH  = Path(__file__).parent / "database" / "healthcare_analytics.db"
@@ -90,7 +92,8 @@ def step_etl():
         if nulls.any():
             print(f"  Nulls after cleaning:\n{nulls[nulls > 0]}")
 
-        clean.to_sql(table, conn, if_exists="replace", index=False)
+        conn.execute(f"DELETE FROM {table}")
+        clean.to_sql(table, conn, if_exists="append", index=False)
         n = pd.read_sql(f"SELECT COUNT(*) as n FROM {table}", conn)["n"][0]
         print(f"  {n} rows written → {table}")
 
@@ -116,9 +119,10 @@ if __name__ == "__main__":
     print("="*60)
 
     steps = [
+        ("Initialise Database",                 init_db),
         ("ETL Pipeline (Data Ingestion)",       step_etl),
         ("Risk Scoring",                        step_risk_scoring),
-        ("Trends + Model Training (XGBoost)",   step_trends),
+        ("Trends + Model Training",             step_trends),
         ("Forecasting",                         step_forecasting),
     ]
 

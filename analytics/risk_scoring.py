@@ -54,7 +54,8 @@ risk_summary = risk_summary.sort_values("year")
 print("\n=== Elderly Population Risk Index (by year) ===")
 print(risk_summary.to_string(index=False))
 
-risk_summary.to_sql("fact_risk_scores", conn, if_exists="replace", index=False)
+conn.execute("DELETE FROM fact_risk_scores")
+risk_summary.to_sql("fact_risk_scores", conn, if_exists="append", index=False)
 print(f"\n{len(risk_summary)} rows saved → fact_risk_scores")
 
 conn.close()
