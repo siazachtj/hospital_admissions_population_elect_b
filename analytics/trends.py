@@ -97,6 +97,7 @@ print(f"\n=== Forecasts ({future_years[0]}–{future_years[-1]}) ===")
 print(forecast_df.to_string(index=False))
 
 conn.execute("DELETE FROM fact_forecasts")
+conn.commit()
 forecast_df.to_sql("fact_forecasts", conn, if_exists="append", index=False)
 print(f"\n{len(forecast_df)} rows saved → fact_forecasts")
 
@@ -128,6 +129,8 @@ print(f"RMSE: {lr_rmse:,.0f} admissions")
 print(f"MAPE: {lr_mape:.1f}%")
 print(f"R²:   {lr_r2:.4f}")
 
+conn.execute("DELETE FROM fact_model_metrics WHERE model_name = 'linear_regression'")
+conn.commit()
 pd.DataFrame([{
     "model_name": "linear_regression",
     "mae":        round(lr_mae,  2),
